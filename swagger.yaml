@@ -1,0 +1,195 @@
+swagger: "2.0"
+info:
+  description: Tweet and search tweets
+  title: twitter
+  version: "1.0"
+  x-direktiv-meta:
+    container: gcr.io/direktiv/functions/twitter
+    maintainer: |-
+      [direktiv.io](https://www.direktiv.io) 
+    issues: https://github.com/direktiv-apps/twitter/issues
+    url: https://github.com/direktiv-apps/twitter  
+    categories:
+    - social
+    license: |-
+      [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+    long-description: >-
+      This function can post tweets and search tweets on Twitter. 
+      It requires a developer account with elevated permissions from https://developer.twitter.com. At the moment tweeting with media is not supported.
+
+      If `search` is selected the values for `query` are required and for `tweet` the attribute `content` is required.
+consumes:
+- application/json
+produces:
+- application/json
+schemes:
+- http
+paths:
+  /: 
+    delete:
+      parameters:
+        - name: Direktiv-ActionID
+          in: header
+          type: string
+          description: |
+            On cancel Direktiv sends a DELETE request to
+            the action with id in the header
+      x-direktiv:
+        cancel: echo 'cancel {{ .DirektivActionID }}'
+      responses:
+        200:
+    post:
+      parameters:
+        - name: Direktiv-ActionID
+          in: header
+          type: string
+          default: development
+          description: |
+            direktiv action id is an UUID. 
+            For development it can be set to 'development'
+        - name: Direktiv-TempDir
+          in: header
+          type: string
+          default: /tmp
+          description: |
+            direktiv temp dir is the working directory for that request
+            For development it can be set to e.g. '/tmp'
+        - name: body
+          in: body
+          schema:
+            type: object
+            required: ["action", "apikey", "apisecret", "accesstoken", "accesstokensecret"]
+            properties:
+              apikey:
+                type: string
+                description: API-Key for Twitter developer account
+              apisecret:
+                type: string
+                description: API-Secret for Twitter developer account
+              accesstoken:
+                type: string
+                description: API-Key for Twitter developer account
+              accesstokensecret:
+                type: string
+                description: API-Secret for Twitter developer account
+              action:
+                type: string
+                enum: ["search", "tweet"]
+                description: Post a tweet or search tweets with `query`
+              query:
+                type: object
+                required: ["properties"]
+                properties:
+                  term: 
+                    type: string
+                    description: Search string
+                  limit:
+                    type: integer
+                    minimum: 10
+                    maximum: 100
+                    description: Number of search results to return.
+                    default: 10
+              content:
+                type: string
+      x-direktiv-function: |-
+        functions:
+        - id: twitter
+          image: gcr.io/direktiv/functions/twitter:1.0
+          type: knative-workflow
+      x-direktiv-examples:
+        - title: Tweet
+          content: |-
+            - id: twitter
+              type: action
+              action:
+                function: twitter
+                secrets: ["apikey", "apisecret", "accesstoken", "accesstokensecret"]
+                input: 
+                  action: tweet
+                  apikey: jq(.secrets.apikey)
+                  apisecret: jq(.secrets.apisecret)
+                  accesstoken: jq(.secrets.accesstoken)
+                  accesstokensecret: jq(.secrets.accesstokensecret)
+                  content: Hello Direktiv Bot
+        - title: Search
+          content: |-
+            - id: twitter
+              type: action
+              action:
+                function: twitter
+                secrets: ["apikey", "apisecret", "accesstoken", "accesstokensecret"]
+                input: 
+                  action: search
+                  apikey: jq(.secrets.apikey)
+                  apisecret: jq(.secrets.apisecret)
+                  accesstoken: jq(.secrets.accesstoken)
+                  accesstokensecret: jq(.secrets.accesstokensecret)
+                  query:
+                    term: direktiv
+                    limit: 20
+      x-direktiv-secrets:
+        - name: apikey
+          description: Twitter API key
+        - name: apisecret
+          description: Twitter API secret
+        - name: accesstoken
+          description: Twitter Access Token
+        - name: accesstokensecret
+          description: Twitter Access Token Secret 
+      x-direktiv:  
+        cmds:
+        - action: exec
+          package: twitter
+          func: DoTwitter
+        output: |
+             {{ index . 0 | toJson }}
+      x-direktiv-errors:
+        io.direktiv.command.error: Command execution failed
+        io.direktiv.output.error: Template error for output generation of the service
+        io.direktiv.ri.error: Can not create information object from request
+      responses:
+        200:
+          description: Result of the twitter request
+          examples:
+            twitter:
+              tweet:
+                coordinates:
+                created_at: Sun Sep 25 11:13:21 +0000 2022
+                extended_entities:
+                extended_tweet:
+                favorite_count: 0
+                favorited: false
+                filter_level: ''
+                full_text: ''
+                id: 1573994059689234400
+                id_str: '1573994059689234432'
+                text: Hello Direktiv Bot
+          schema:
+            type: object
+            additionalProperties: {}
+        default:
+          description: generic error response
+          headers:
+            Direktiv-ErrorCode:
+              type: string
+            Direktiv-ErrorMessage:
+              type: string
+          schema:
+            $ref: "#/definitions/error"
+definitions:
+  direktivFile:
+    type: object
+    x-go-type:
+      type: DirektivFile
+      import:
+        package: github.com/direktiv/apps/go/pkg/apps 
+  error:
+    type: object
+    required:
+      - errorCode
+      - errorMessage
+    properties:
+      errorCode:
+        type: string
+      errorMessage:
+        type: string

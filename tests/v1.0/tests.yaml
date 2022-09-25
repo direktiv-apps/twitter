@@ -1,0 +1,41 @@
+url: ""
+functions:
+- type: knative-workflow
+  id: twitter
+  image: gcr.io/direktiv/functions/twitter:test
+states:
+- id: state0
+  type: action
+  action:
+    function: twitter
+    input:
+      accesstoken: jq(.secrets.accesstoken)
+      accesstokensecret: jq(.secrets.accesstokensecret)
+      action: tweet
+      apikey: jq(.secrets.apikey)
+      apisecret: jq(.secrets.apisecret)
+      content: Hello Direktiv Bot
+    secrets:
+    - apikey
+    - apisecret
+    - accesstoken
+    - accesstokensecret
+  transition: state1
+- id: state1
+  type: action
+  action:
+    function: twitter
+    input:
+      accesstoken: jq(.secrets.accesstoken)
+      accesstokensecret: jq(.secrets.accesstokensecret)
+      action: search
+      apikey: jq(.secrets.apikey)
+      apisecret: jq(.secrets.apisecret)
+      query:
+        limit: 20
+        term: direktiv
+    secrets:
+    - apikey
+    - apisecret
+    - accesstoken
+    - accesstokensecret
